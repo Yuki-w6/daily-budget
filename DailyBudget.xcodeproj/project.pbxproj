@@ -7,18 +7,39 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		11111111000000000000000D /* DailyBudgetCore in Frameworks */ = {isa = PBXBuildFile; productRef = 11111111000000000000000C /* DailyBudgetCore */; };
 		000000005E3294E3F3585DB5 /* DailyBudgetCore in Frameworks */ = {isa = PBXBuildFile; productRef = 00000000117654A26BEB1792 /* DailyBudgetCore */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		111111110000000000000008 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000005304319DAD6DE249 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 00000000266A6E497A181BB7;
+			remoteInfo = DailyBudget;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		111111110000000000000001 /* DailyBudgetTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DailyBudgetTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0000000011C977CC9018BDF1 /* DailyBudget.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DailyBudget.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		111111110000000000000002 /* DailyBudgetTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = DailyBudgetTests; sourceTree = "<group>"; };
 		000000004408080FB6B8A0B3 /* DailyBudget */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = DailyBudget; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		111111110000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				11111111000000000000000D /* DailyBudgetCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		0000000059C2B25CC6DF4244 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -34,6 +55,7 @@
 			isa = PBXGroup;
 			children = (
 				000000004408080FB6B8A0B3 /* DailyBudget */,
+				111111110000000000000002 /* DailyBudgetTests */,
 				0000000033D0E01C88E44358 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -42,6 +64,7 @@
 			isa = PBXGroup;
 			children = (
 				0000000011C977CC9018BDF1 /* DailyBudget.app */,
+				111111110000000000000001 /* DailyBudgetTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -49,6 +72,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		111111110000000000000003 /* DailyBudgetTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 111111110000000000000009 /* Build configuration list for PBXNativeTarget "DailyBudgetTests" */;
+			buildPhases = (
+				111111110000000000000004 /* Sources */,
+				111111110000000000000005 /* Frameworks */,
+				111111110000000000000006 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = (
+				111111110000000000000007 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				111111110000000000000002 /* DailyBudgetTests */,
+			);
+			name = DailyBudgetTests;
+			packageProductDependencies = (
+				11111111000000000000000C /* DailyBudgetCore */,
+			);
+			productName = DailyBudgetTests;
+			productReference = 111111110000000000000001 /* DailyBudgetTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		00000000266A6E497A181BB7 /* DailyBudget */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 00000000208501708FE64845 /* Build configuration list for PBXNativeTarget "DailyBudget" */;
@@ -72,6 +118,14 @@
 		};
 /* End PBXNativeTarget section */
 
+/* Begin PBXTargetDependency section */
+		111111110000000000000007 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 00000000266A6E497A181BB7 /* DailyBudget */;
+			targetProxy = 111111110000000000000008 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin PBXProject section */
 		000000005304319DAD6DE249 /* Project object */ = {
 			isa = PBXProject;
@@ -82,6 +136,10 @@
 				TargetAttributes = {
 					00000000266A6E497A181BB7 = {
 						CreatedOnToolsVersion = 26.6;
+					};
+					111111110000000000000003 = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = 00000000266A6E497A181BB7;
 					};
 				};
 			};
@@ -103,11 +161,19 @@
 			projectRoot = "";
 			targets = (
 				00000000266A6E497A181BB7 /* DailyBudget */,
+				111111110000000000000003 /* DailyBudgetTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		111111110000000000000006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		000000003375AD3CB9578B01 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -118,6 +184,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		111111110000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		0000000001642E1FB67A5C6E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -128,6 +201,44 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		11111111000000000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 62TRG6G4RG;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mayamayuki.dailybudget.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DailyBudget.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DailyBudget";
+			};
+			name = Debug;
+		};
+		11111111000000000000000B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 62TRG6G4RG;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mayamayuki.dailybudget.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DailyBudget.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DailyBudget";
+			};
+			name = Release;
+		};
 		0000000077B63A0A2E72FEC2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -308,6 +419,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		111111110000000000000009 /* Build configuration list for PBXNativeTarget "DailyBudgetTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				11111111000000000000000A /* Debug */,
+				11111111000000000000000B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		0000000064E3D14DA57C82E1 /* Build configuration list for PBXProject "DailyBudget" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -336,6 +456,11 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		11111111000000000000000C /* DailyBudgetCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 000000003D79A5DFFEB8DC04 /* XCLocalSwiftPackageReference "DailyBudgetCore" */;
+			productName = DailyBudgetCore;
+		};
 		00000000117654A26BEB1792 /* DailyBudgetCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 000000003D79A5DFFEB8DC04 /* XCLocalSwiftPackageReference "DailyBudgetCore" */;
