@@ -230,8 +230,13 @@ final class BudgetStore {
     /// 未到来の日には実績を出さないため、当月は閲覧日までに絞る（PRD §5.5）。
     func monthDetail(for yearMonth: YearMonth) -> MonthDetail? {
         guard let calculator else { return nil }
+        let today = self.today
         let expenses = fetchExpenses(in: yearMonth)
         let entries = expenses.compactMap(Self.entry(from:))
+        // 月末見込みは進行中の月にだけ意味がある。実績と混同させないため別の値として持つ。
+        let projection = yearMonth == today.yearMonth
+            ? calculator.monthEndProjection(for: yearMonth, expenses: entries, asOf: today)
+            : nil
         return MonthDetail(
             yearMonth: yearMonth,
             summary: calculator.monthSummary(
@@ -240,8 +245,18 @@ final class BudgetStore {
                 asOf: min(yearMonth.lastDay, today)
             ),
             expenses: expenses,
-            settlement: fetchSettlement(for: yearMonth)
+            settlement: fetchSettlement(for: yearMonth),
+            projection: projection
         )
+    }
+
+    /// 確定済み・確定解除中の月の一覧。新しい月が先頭（PRD §5.6 過去月一覧）。
+    func settlements() -> [MonthlySettlement] {
+        let descriptor = FetchDescriptor<MonthlySettlementEntity>(
+            sortBy: [SortDescriptor(\.yearMonthISO, order: .reverse)]
+        )
+        let entities = (try? context.fetch(descriptor)) ?? []
+        return entities.compactMap(Self.settlement(from:))
     }
 
     // MARK: - 読み直し
@@ -406,9 +421,23 @@ struct MonthDetail {
     /// その月の支出。日付昇順。
     let expenses: [ExpenseEntity]
     let settlement: MonthlySettlement?
+    /// 進行中の月のみ。未来日の予算を含む月末見込み（PRD §5.6）。実績とは別物として扱う。
+    let projection: MonthEndProjection?
 
     /// 確定済みで閲覧専用か（PRD §5.5 / §6.3）。
     var isClosed: Bool { settlement?.status == .closed }
+
+    /// 進行中の月か。確定レコードが無いか、確定を解除して編集中なら進行中。
+    var isInProgress: Bool { !isClosed }
+
+    /// カテゴリ別支出。金額の降順（PRD §5.6）。
+    var categoryShares: [CategoryShare] {
+        var totals: [String: Int64] = [:]
+        for expense in expenses {
+            totals[expense.category?.name ?? "その他", default: 0] += expense.amountYen
+        }
+        return CategoryBreakdown.make(from: totals)
+    }
 
     func dailySummary(on day: CalendarDay) -> DailySummary? {
         summary.days.first { $0.day == day }
