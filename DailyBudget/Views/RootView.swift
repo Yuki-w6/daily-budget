@@ -26,10 +26,7 @@ struct MainTabView: View {
                 HistoryView(store: store)
             }
             Tab("レポート", systemImage: "chart.xyaxis.line") {
-                ComingSoonView(
-                    title: "月次レポート",
-                    detail: "累積余剰の折れ線グラフとカテゴリ別支出は Phase 2 で実装します。"
-                )
+                MonthlyReportView(store: store)
             }
             Tab("設定", systemImage: "gearshape") {
                 ComingSoonView(
