@@ -10,6 +10,8 @@ struct HistoryView: View {
     @State private var displayedMonth: YearMonth?
     @State private var detail: MonthDetail?
     @State private var selectedDay: CalendarDay?
+    @State private var isConfirmingReopen = false
+    @State private var settlementError: String?
 
     var body: some View {
         NavigationStack {
@@ -18,8 +20,8 @@ struct HistoryView: View {
                     ScrollView {
                         VStack(spacing: 16) {
                             monthHeader(displayedMonth)
-                            if detail.isClosed {
-                                closedNotice(detail)
+                            if detail.isClosed || detail.isReopened {
+                                settlementNotice(detail)
                             }
                             calendar(detail, month: displayedMonth)
                             monthSummaryLine(detail)
@@ -90,16 +92,89 @@ struct HistoryView: View {
         store.browsableMonths?.contains(month) ?? false
     }
 
-    private func closedNotice(_ detail: MonthDetail) -> some View {
-        // 確定済みの月は閲覧専用。色だけでなく文字で状態を伝える（PRD §5.5 / §9）。
-        Label {
-            Text("この月は確定済みです。支出の編集はできません。")
-        } icon: {
-            Image(systemName: "lock")
+    /// 確定済み・編集中の案内と操作（PRD §5.5 / §6.3）。
+    ///
+    /// 確定済みの月は閲覧専用。色だけでなく文字とアイコンで状態を伝える（PRD §9）。
+    @ViewBuilder
+    private func settlementNotice(_ detail: MonthDetail) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label {
+                Text(detail.isClosed
+                    ? "この月は確定済みです。編集するには確定を解除します。"
+                    : "確定を解除して編集中です。終わったら確定しなおしてください。")
+            } icon: {
+                Image(systemName: detail.isClosed ? "lock" : "lock.open")
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+
+            if let historyText = Self.settlementHistoryText(detail.settlement) {
+                Text(verbatim: historyText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if detail.isClosed {
+                Button("確定を解除して編集する") { isConfirmingReopen = true }
+                    .font(.footnote)
+            } else {
+                Button("確定しなおす") { reclose(detail.yearMonth) }
+                    .font(.footnote)
+            }
+
+            if let settlementError {
+                Text(settlementError)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            }
         }
-        .font(.footnote)
-        .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .confirmationDialog(
+            "この月の確定を解除しますか？",
+            isPresented: $isConfirmingReopen,
+            titleVisibility: .visible
+        ) {
+            Button("解除して編集する") { reopen(detail.yearMonth) }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("支出を訂正できるようになります。訂正後は確定しなおしてください。翌月以降の予算には影響しません。")
+        }
+    }
+
+    /// 確定操作の履歴（PRD §6.3）。
+    private static func settlementHistoryText(_ settlement: MonthlySettlement?) -> String? {
+        guard let settlement, let closedAt = settlement.closedAt else { return nil }
+        var text = "確定 " + dateTimeText(closedAt)
+        if settlement.recloseCount > 0 {
+            text += "・確定しなおし \(settlement.recloseCount)回"
+        }
+        return text
+    }
+
+    private static func dateTimeText(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = AppConstants.budgetTimeZone
+        formatter.dateFormat = "yyyy/MM/dd HH:mm"
+        return formatter.string(from: date)
+    }
+
+    private func reopen(_ yearMonth: YearMonth) {
+        settlementError = nil
+        do {
+            try store.reopenSettlement(for: yearMonth)
+        } catch {
+            settlementError = error.localizedDescription
+        }
+    }
+
+    private func reclose(_ yearMonth: YearMonth) {
+        settlementError = nil
+        do {
+            try store.recloseSettlement(for: yearMonth)
+        } catch {
+            settlementError = error.localizedDescription
+        }
     }
 
     // MARK: カレンダー
