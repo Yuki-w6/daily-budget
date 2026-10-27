@@ -22,6 +22,7 @@ daily-budget/
 │  │  └─ BudgetChange.swift       # PRD §6.1 予算変更の適用日と影響の試算
 │  └─ Tests/DailyBudgetCoreTests/ # PRD §4.3 計算例・§10 受け入れ条件
 ├─ DailyBudget.xcodeproj
+├─ DailyBudgetTests/         # BudgetStore のテスト（in-memory SwiftData）
 └─ DailyBudget/              # SwiftUI + SwiftData のアプリ層
    ├─ DailyBudgetApp.swift
    ├─ Models/Entities.swift  # SwiftData モデル（PRD §7）
@@ -46,7 +47,17 @@ export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 xcodebuild -scheme DailyBudget \
   -destination 'platform=iOS Simulator,name=iPhone 17' \
   -configuration Debug build
+
+# BudgetStore のテスト（Simulator が要る）
+xcodebuild -scheme DailyBudget \
+  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -configuration Debug test
 ```
+
+テストは2層に分かれている。計算ロジックは `DailyBudgetCore` のテストで固め、
+SwiftData を挟んでも同じ結果になるか・重複や壊れたレコードをどう扱うかは
+`DailyBudgetTests` で確認する。前者は Simulator 不要で数秒、後者は
+Simulator の起動を伴うので、普段の反復は前者を回せばよい。
 
 初回のみ Xcode のライセンス同意が必要：`sudo xcodebuild -license accept`
 
