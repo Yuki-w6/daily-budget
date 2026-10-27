@@ -43,6 +43,10 @@ final class BudgetStore {
     private(set) var currentMonthExpenses: [ExpenseEntity] = []
     /// 新規登録で選べるカテゴリ。
     private(set) var selectableCategories: [ExpenseCategoryEntity] = []
+    /// 確定レコードが `closed` の月。編集できるかの判定に使う。
+    private(set) var closedMonths: Set<YearMonth> = []
+    /// 保存が成功するたびに増える。表示中の月を読み直す契機として画面が監視する。
+    private(set) var dataVersion = 0
 
     init(context: ModelContext, timeZone: TimeZone = AppConstants.budgetTimeZone, clock: @escaping () -> Date = Date.init) {
         self.context = context
@@ -53,10 +57,37 @@ final class BudgetStore {
     /// 今日の暦日。`Asia/Tokyo` の暦日で判定する（PRD §6.4）。
     var today: CalendarDay { CalendarDay(clock(), in: timeZone) }
 
-    /// 支出日として選べる範囲。利用開始日から当日まで（PRD §5.4）。
+    /// 支出日として選べる範囲。判定規則は `ExpenseEditPolicy` にある（PRD §5.4）。
     var selectableExpenseDateRange: ClosedRange<CalendarDay>? {
-        guard let activeStartDate, activeStartDate <= today else { return nil }
-        return activeStartDate...today
+        guard let activeStartDate else { return nil }
+        return ExpenseEditPolicy.editableDateRange(
+            activeStartDate: activeStartDate,
+            today: today,
+            closedMonths: closedMonths
+        )
+    }
+
+    /// その日の支出を登録・編集できるか。
+    func isEditable(_ day: CalendarDay) -> Bool {
+        guard let activeStartDate else { return false }
+        return ExpenseEditPolicy.isEditable(
+            day,
+            activeStartDate: activeStartDate,
+            today: today,
+            closedMonths: closedMonths
+        )
+    }
+
+    /// 履歴で表示できる月の範囲。利用開始月から当月まで。
+    var browsableMonths: ClosedRange<YearMonth>? {
+        guard let activeStartDate else { return nil }
+        let first = activeStartDate.yearMonth
+        let last = today.yearMonth
+        return first <= last ? first...last : nil
+    }
+
+    func isClosed(_ yearMonth: YearMonth) -> Bool {
+        closedMonths.contains(yearMonth)
     }
 
     // MARK: - 起動時
@@ -192,6 +223,27 @@ final class BudgetStore {
         return pending
     }
 
+    // MARK: - 任意の月の読み出し
+
+    /// 指定した月の集計・支出・確定レコードをまとめて読み出す。履歴と月次レポートが使う。
+    ///
+    /// 未到来の日には実績を出さないため、当月は閲覧日までに絞る（PRD §5.5）。
+    func monthDetail(for yearMonth: YearMonth) -> MonthDetail? {
+        guard let calculator else { return nil }
+        let expenses = fetchExpenses(in: yearMonth)
+        let entries = expenses.compactMap(Self.entry(from:))
+        return MonthDetail(
+            yearMonth: yearMonth,
+            summary: calculator.monthSummary(
+                for: yearMonth,
+                expenses: entries,
+                asOf: min(yearMonth.lastDay, today)
+            ),
+            expenses: expenses,
+            settlement: fetchSettlement(for: yearMonth)
+        )
+    }
+
     // MARK: - 読み直し
 
     /// 永続化層から読み直し、派生状態を再計算する。
@@ -207,6 +259,8 @@ final class BudgetStore {
             currentMonthSummary = nil
             currentMonthExpenses = []
             selectableCategories = fetchCategories().filter(\.isActive)
+            closedMonths = []
+            dataVersion += 1
             return
         }
 
@@ -232,6 +286,8 @@ final class BudgetStore {
             ($0.spentOnISO, $0.createdAt) > ($1.spentOnISO, $1.createdAt)
         }
         selectableCategories = fetchCategories().filter(\.isActive)
+        closedMonths = fetchClosedMonths()
+        dataVersion += 1
     }
 
     // MARK: - 永続化層へのアクセス
@@ -288,6 +344,42 @@ final class BudgetStore {
         fetchExpenses(in: yearMonth).compactMap(Self.entry(from:))
     }
 
+    private func fetchSettlement(for yearMonth: YearMonth) -> MonthlySettlement? {
+        let monthISO = yearMonth.iso
+        var descriptor = FetchDescriptor<MonthlySettlementEntity>(
+            predicate: #Predicate { $0.yearMonthISO == monthISO }
+        )
+        descriptor.fetchLimit = 1
+        guard let entity = (try? context.fetch(descriptor))?.first else { return nil }
+        return Self.settlement(from: entity)
+    }
+
+    private func fetchClosedMonths() -> Set<YearMonth> {
+        let descriptor = FetchDescriptor<MonthlySettlementEntity>()
+        let entities = (try? context.fetch(descriptor)) ?? []
+        return Set(
+            entities
+                .filter { $0.statusRaw == SettlementStatus.closed.rawValue }
+                .compactMap { YearMonth(iso: $0.yearMonthISO) }
+        )
+    }
+
+    private static func settlement(from entity: MonthlySettlementEntity) -> MonthlySettlement? {
+        guard let yearMonth = YearMonth(iso: entity.yearMonthISO),
+              let status = SettlementStatus(rawValue: entity.statusRaw)
+        else { return nil }
+        return MonthlySettlement(
+            id: entity.uuid,
+            yearMonth: yearMonth,
+            status: status,
+            budgetTotalYen: entity.budgetTotalYen,
+            expenseTotalYen: entity.expenseTotalYen,
+            surplusYen: entity.surplusYen,
+            closedAt: entity.closedAt,
+            recloseCount: entity.recloseCount
+        )
+    }
+
     /// 永続化レコードを計算用の値型へ変換する。壊れた日付や 0円以下は集計から除外する。
     private static func entry(from entity: ExpenseEntity) -> ExpenseEntry? {
         guard let spentOn = CalendarDay(iso: entity.spentOnISO), entity.amountYen >= 1 else {
@@ -303,5 +395,26 @@ final class BudgetStore {
             context.insert(ExpenseCategoryEntity(name: name, sortOrder: index))
         }
         try? save()
+    }
+}
+
+/// 1か月分の表示データ。履歴と月次レポートが同じ形で受け取る。
+struct MonthDetail {
+    let yearMonth: YearMonth
+    /// 閲覧日までの実績。未到来の日は含まない。
+    let summary: MonthSummary
+    /// その月の支出。日付昇順。
+    let expenses: [ExpenseEntity]
+    let settlement: MonthlySettlement?
+
+    /// 確定済みで閲覧専用か（PRD §5.5 / §6.3）。
+    var isClosed: Bool { settlement?.status == .closed }
+
+    func dailySummary(on day: CalendarDay) -> DailySummary? {
+        summary.days.first { $0.day == day }
+    }
+
+    func expenses(on day: CalendarDay) -> [ExpenseEntity] {
+        expenses.filter { $0.spentOnISO == day.iso }
     }
 }

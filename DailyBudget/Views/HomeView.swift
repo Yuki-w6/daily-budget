@@ -61,7 +61,9 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 4) {
                 breakdownRow("日額予算", Yen.amount(breakdown.dailyBudgetYen))
                 breakdownRow("前日までの繰越", Yen.signedAmount(breakdown.carryOverYen))
-                breakdownRow("今日の支出", "−" + Yen.amount(breakdown.todayExpenseYen))
+                breakdownRow("今日の支出", breakdown.todayExpenseYen > 0
+                    ? "−" + Yen.amount(breakdown.todayExpenseYen)
+                    : Yen.amount(0))
             }
             .font(.subheadline)
             .foregroundStyle(.secondary)

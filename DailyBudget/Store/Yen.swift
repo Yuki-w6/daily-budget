@@ -25,6 +25,14 @@ enum Yen {
         return amount(yen)
     }
 
+    /// カレンダーのセルなど幅の狭い場所で使う、通貨記号なしの符号付き表示。例：`+1,800` / `−500`。
+    static func compactSigned(_ yen: Int64) -> String {
+        let digits = formatter.string(from: NSNumber(value: abs(yen))) ?? "\(abs(yen))"
+        if yen > 0 { return "+\(digits)" }
+        if yen < 0 { return "−\(digits)" }
+        return "0"
+    }
+
     /// VoiceOver 用の読み上げ文。記号ではなく語で伝える。
     static func spoken(_ yen: Int64) -> String {
         let digits = formatter.string(from: NSNumber(value: abs(yen))) ?? "\(abs(yen))"
