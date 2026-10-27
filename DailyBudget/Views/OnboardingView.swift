@@ -48,13 +48,6 @@ struct OnboardingView: View {
                 } header: {
                     Text("記録するもの")
                 }
-
-                Section {
-                    Text("記録は端末内にのみ保存されます。機種変更やアプリの削除では引き継げません。")
-                        .foregroundStyle(.secondary)
-                } header: {
-                    Text("データの保存")
-                }
             }
             .navigationTitle("はじめる")
             .safeAreaInset(edge: .bottom) {

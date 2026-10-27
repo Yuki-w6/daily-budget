@@ -29,28 +29,8 @@ struct MainTabView: View {
                 MonthlyReportView(store: store)
             }
             Tab("設定", systemImage: "gearshape") {
-                ComingSoonView(
-                    title: "設定",
-                    detail: "日額予算の変更と変更履歴は Phase 2 で実装します。"
-                )
+                SettingsView(store: store)
             }
-        }
-    }
-}
-
-/// 未実装タブの代替表示。実装済みに見せないことを目的とする。
-struct ComingSoonView: View {
-    let title: String
-    let detail: String
-
-    var body: some View {
-        NavigationStack {
-            ContentUnavailableView {
-                Label(title, systemImage: "hammer")
-            } description: {
-                Text(detail)
-            }
-            .navigationTitle(title)
         }
     }
 }

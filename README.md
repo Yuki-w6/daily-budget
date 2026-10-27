@@ -15,14 +15,15 @@ daily-budget/
 │  │  ├─ BudgetCalculator.swift   # PRD §8.1「単一の計算サービス」
 │  │  ├─ SettlementPlanner.swift  # PRD §6.2 自動確定の対象判定
 │  │  ├─ ExpenseEditPolicy.swift  # PRD §5.4 支出を編集できる日の判定
-│  │  └─ CategoryBreakdown.swift  # PRD §5.6 カテゴリ別支出の構成比
+│  │  ├─ CategoryBreakdown.swift  # PRD §5.6 カテゴリ別支出の構成比
+│  │  └─ BudgetChange.swift       # PRD §6.1 予算変更の適用日と影響の試算
 │  └─ Tests/DailyBudgetCoreTests/ # PRD §4.3 計算例・§10 受け入れ条件
 ├─ DailyBudget.xcodeproj
 └─ DailyBudget/              # SwiftUI + SwiftData のアプリ層
    ├─ DailyBudgetApp.swift
    ├─ Models/Entities.swift  # SwiftData モデル（PRD §7）
    ├─ Store/                 # リポジトリ層・表示整形
-   └─ Views/                 # 画面A/B/C/D/E（PRD §5）
+   └─ Views/                 # 画面A〜F（PRD §5）
 ```
 
 計算ロジックは SwiftUI にも SwiftData にも依存しないため、Simulator を起動せずに
@@ -53,11 +54,8 @@ PRD §11 の開発順序に沿って進める。
 | Phase | 内容 | 状態 |
 | --- | --- | --- |
 | 1 | 予算と支出のコア（モデル・リポジトリ層・初期設定・支出CRUD・集計ロジック・ホーム画面） | 実装済み |
-| 2 | 履歴（カレンダー・日別明細）・月次レポート・予算変更履歴・確定解除と再確定 | 履歴・月次レポート実装済み |
+| 2 | 履歴（カレンダー・日別明細）・月次レポート・予算変更履歴・確定解除と再確定 | 確定解除と再確定を残して実装済み |
 | 3 | 境界値テスト・アクセシビリティ確認・エラー処理の確認 | 未着手 |
-
-未実装のタブ（設定）は、実装済みに見せないため
-`ComingSoonView` で未実装であることを明示している。
 
 月末自動確定（PRD §6.2）は Phase 2 の項目だが、「端末を起動していない間でも過去月の
 集計が失われてはならない」という要件のため、計算とストア処理を Phase 1 に前倒しして

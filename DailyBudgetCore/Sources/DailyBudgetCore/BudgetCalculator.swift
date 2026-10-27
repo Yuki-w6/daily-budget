@@ -29,6 +29,14 @@ public struct BudgetCalculator: Sendable {
         return latest.values.sorted { $0.effectiveFrom < $1.effectiveFrom }
     }
 
+    /// 適用中の予算ルール。`effectiveFrom` 昇順、同一日付は正規化済み。
+    public var budgetRules: [BudgetRule] { rules }
+
+    /// ルールを1件足した計算機を返す。変更を保存する前に影響を試算するために使う。
+    public func applying(_ rule: BudgetRule) -> BudgetCalculator {
+        BudgetCalculator(activeStartDate: activeStartDate, rules: rules + [rule])
+    }
+
     // MARK: - 日単位
 
     /// `budget(d)`：その日に新たに加算される利用可能額。
