@@ -138,11 +138,13 @@ struct MonthlyReportView: View {
                 .foregroundStyle(.secondary)
 
             if let projection = detail.projection, detail.isInProgress {
-                // 未来日の予算を含む見込み。実績と別物だと分かる書き方にする（PRD §5.6）。
-                Text(verbatim: "このまま使わなければ、月末は "
-                    + Yen.signedAmount(projection.projectedSurplusYen))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                // 未来日の予算を含む見込み（PRD §5.6）。「〜そう」で実績ではないと示す。
+                Text(verbatim: Self.projectionText(projection.projectedSurplusYen))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Self.projectionColor(projection.projectedSurplusYen))
+                    .accessibilityLabel(
+                        Self.projectionAccessibilityLabel(projection.projectedSurplusYen)
+                    )
             }
 
             if detail.isClosed {
@@ -318,6 +320,27 @@ struct MonthlyReportView: View {
                 Divider()
             }
         }
+    }
+
+    // MARK: 月末の見込みの文言
+
+    /// 超過と余りで言い回しを変える。色が見えなくても、どちらなのかが文字で分かる（PRD §9）。
+    private static func projectionText(_ yen: Int64) -> String {
+        if yen < 0 { return "\(Yen.amount(abs(yen)))超えちゃいそう" }
+        if yen == 0 { return "予算ピッタリ" }
+        return "\(Yen.amount(yen))浮きそう"
+    }
+
+    private static func projectionColor(_ yen: Int64) -> Color {
+        if yen < 0 { return .red }
+        if yen == 0 { return .secondary }
+        return .blue
+    }
+
+    private static func projectionAccessibilityLabel(_ yen: Int64) -> String {
+        if yen < 0 { return "月末の見込み。\(Yen.spoken(abs(yen)))超えそうです" }
+        if yen == 0 { return "月末の見込み。予算ぴったりです" }
+        return "月末の見込み。\(Yen.spoken(yen))余りそうです"
     }
 
     private static func percentText(_ share: Double) -> String {
