@@ -7,6 +7,8 @@
 
 ```
 daily-budget/
+├─ DailyBudget.entitlements  # iCloud（CloudKit）の利用宣言
+├─ Info.plist                # 自動生成に足す分だけ（remote-notification）
 ├─ DailyBudgetCore/          # 予算計算ロジック（SPMパッケージ、iOS/macOS両対応）
 │  ├─ Sources/DailyBudgetCore/
 │  │  ├─ CalendarDay.swift        # 時刻を持たない暦日
@@ -15,6 +17,7 @@ daily-budget/
 │  │  ├─ BudgetCalculator.swift   # PRD §8.1「単一の計算サービス」
 │  │  ├─ SettlementPlanner.swift  # PRD §6.2 自動確定の対象判定
 │  │  ├─ ExpenseEditPolicy.swift  # PRD §5.4 支出を編集できる日の判定
+│  │  ├─ DuplicateResolution.swift # 同期で重複したレコードの収束規則
 │  │  ├─ CategoryBreakdown.swift  # PRD §5.6 カテゴリ別支出の構成比
 │  │  └─ BudgetChange.swift       # PRD §6.1 予算変更の適用日と影響の試算
 │  └─ Tests/DailyBudgetCoreTests/ # PRD §4.3 計算例・§10 受け入れ条件
@@ -84,8 +87,47 @@ PRD §4.2 は `periodStart(d) = max(monthStart(d), activeStart)` と定義する
 扱いが2通りに読める。AC-16「初回利用開始日より前の予算は加算されない」に合わせ、
 `activeStart` 以降のみを合計する実装にした。
 
-## MVPの制約
+## iCloud 同期
 
-記録は端末ローカルにのみ保存され、サーバー同期やバックアップは持たない（PRD §9）。
-機種変更・端末故障・アプリ削除で記録を失う。初期設定画面でこの制約を明示している。
-長期運用の前にエクスポート機能（PRD §13）の前倒しを検討する。
+記録は SwiftData + CloudKit で iCloud の個人データベースに同期する。
+同じ Apple アカウントの端末間で記録が共有され、機種変更でも引き継げる。
+iCloud にサインインしていない端末では、ローカルのデータベースとして動き、
+サインイン後に同期が始まる。
+
+### 必要な準備
+
+Apple Developer のアカウントに、次の識別子の iCloud コンテナを作っておく。
+
+```
+iCloud.com.mayamayuki.dailybudget
+```
+
+Xcode で `Signing & Capabilities` → `+ Capability` → `iCloud` → `CloudKit` を選び、
+このコンテナにチェックを入れると作成できる。
+
+### 一意制約を使っていない理由
+
+**CloudKit は一意制約に対応していない。** そのため SwiftData のモデルから
+`#Unique` を外し、代わりにアプリ側で重複を解消している。
+
+| エンティティ | 重複を判定するキー |
+| --- | --- |
+| `AppSettingsEntity` | 単一レコード |
+| `BudgetRuleEntity` | `effectiveFromISO` |
+| `ExpenseCategoryEntity` | `name` |
+| `MonthlySettlementEntity` | `yearMonthISO` |
+
+`BudgetStore.deduplicateRecords()` が起動時に走り、`DuplicateResolution` の規則で
+残すレコードを1件に絞る。規則は「最終更新が新しいものを残し、同時刻なら `id` の
+小さいほうを残す」。どの端末で実行しても同じ結果になるので、取り合いにならずに
+収束する。カテゴリの重複は、支出を残すほうへ付け替えてから削除する。
+
+CloudKit はすべての保存プロパティに既定値があることも要求するため、
+モデルの各プロパティに既定値を与えている。
+
+### 未確認の事項
+
+端末間の同期そのものは確認できていない。Simulator には iCloud アカウントが
+なく（`accountStatus=No account`）、実機2台またはサインイン済みの環境が要る。
+確認済みなのは、CloudKit 構成でコンテナが開けること、起動時に
+`CoreData+CloudKit` のセットアップが走ること、警告が出ないことまで。

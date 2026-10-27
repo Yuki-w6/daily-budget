@@ -5,6 +5,10 @@ enum AppConstants {
     static let timeZoneIdentifier = "Asia/Tokyo"
     static let currencyCode = "JPY"
 
+    /// iCloud の同期先コンテナ（#14）。Apple Developer のアカウントに
+    /// 同じ識別子のコンテナを作っておく必要がある。
+    static let iCloudContainerIdentifier = "iCloud.com.mayamayuki.dailybudget"
+
     /// 日次・月次の境界を判定するタイムゾーン（PRD §6.4）。
     static let budgetTimeZone = TimeZone(identifier: timeZoneIdentifier) ?? .current
 
