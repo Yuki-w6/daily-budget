@@ -96,6 +96,12 @@ extension CalendarDay {
         self.year = self.month <= 2 ? y + 1 : y
     }
 
+    /// 曜日。0 が日曜、6 が土曜。カレンダーの列位置に使う。
+    public var weekdayIndex: Int {
+        // 1970-01-01（epochDay 0）は木曜日なので 4 を足す。
+        (((epochDay % 7) + 7) % 7 + 4) % 7
+    }
+
     public func adding(days: Int) -> CalendarDay {
         CalendarDay(epochDay: epochDay + days)
     }

@@ -23,10 +23,7 @@ struct MainTabView: View {
                 HomeView(store: store)
             }
             Tab("履歴", systemImage: "calendar") {
-                ComingSoonView(
-                    title: "履歴",
-                    detail: "カレンダーと日別明細は Phase 2 で実装します。"
-                )
+                HistoryView(store: store)
             }
             Tab("レポート", systemImage: "chart.xyaxis.line") {
                 ComingSoonView(

@@ -67,6 +67,21 @@ struct CalendarArithmeticTests {
                 == CalendarDay(year: 2026, month: 11, day: 6))
     }
 
+    @Test("曜日が日曜起点の0〜6で求まる")
+    func weekdayIndexIsSundayBased() {
+        #expect(CalendarDay(year: 1970, month: 1, day: 1).weekdayIndex == 4)   // 木曜
+        #expect(CalendarDay(year: 2026, month: 11, day: 1).weekdayIndex == 0)  // 日曜
+        #expect(CalendarDay(year: 2026, month: 10, day: 27).weekdayIndex == 2) // 火曜
+        #expect(CalendarDay(year: 2026, month: 2, day: 28).weekdayIndex == 6)  // 土曜
+        #expect(CalendarDay(year: 2028, month: 2, day: 29).weekdayIndex == 2)  // 火曜
+
+        // 連続する7日で0〜6が一巡する。
+        let week = CalendarDay(year: 2026, month: 11, day: 1).through(
+            CalendarDay(year: 2026, month: 11, day: 7)
+        )
+        #expect(week.map(\.weekdayIndex) == [0, 1, 2, 3, 4, 5, 6])
+    }
+
     @Test("月の列挙と加減算が年をまたいでも正しい")
     func yearMonthArithmetic() {
         let november = YearMonth(year: 2026, month: 11)
