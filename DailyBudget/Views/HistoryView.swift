@@ -143,18 +143,12 @@ struct HistoryView: View {
                     .monospacedDigit()
 
                 if let summary {
-                    // 支出のない日は空欄にする。「−」を置くとマイナス記号と紛らわしい。
-                    Text(verbatim: summary.expenseYen > 0
-                        ? Yen.compactSigned(-summary.expenseYen)
-                        : " ")
-                        .font(.system(size: 9))
-                        .foregroundStyle(.secondary)
-                    Text(Yen.compactSigned(summary.cumulativeSurplusYen))
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(summary.cumulativeSurplusYen < 0 ? .red : .primary)
+                    // その日の終わりの残りだけを出す。符号で色を変える。
+                    Text(verbatim: Yen.compactSigned(summary.cumulativeSurplusYen))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Self.surplusColor(summary.cumulativeSurplusYen))
                 } else {
-                    Text(" ").font(.system(size: 9))
-                    Text(" ").font(.system(size: 9))
+                    Text(" ").font(.system(size: 10))
                 }
             }
             .monospacedDigit()
@@ -188,9 +182,15 @@ struct HistoryView: View {
             parts.append("実績なし")
             return parts.joined(separator: "、")
         }
-        parts.append("支出 \(Yen.spoken(summary.expenseYen))")
         parts.append("残り \(Yen.spoken(summary.cumulativeSurplusYen))")
         return parts.joined(separator: "、")
+    }
+
+    /// 残りの符号で色を変える。余りは青、超過は赤。
+    private static func surplusColor(_ yen: Int64) -> Color {
+        if yen < 0 { return .red }
+        if yen == 0 { return .secondary }
+        return .blue
     }
 
     // MARK: 月の合計

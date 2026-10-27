@@ -65,23 +65,28 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// 内訳は1行にまとめる。今日の支出は、ある日だけ足す（0円の日は出さない）。
+    /// 内訳は1行にまとめる。
+    ///
+    /// 「予算」は1日の予算と前日までの繰越を足した額。この額から支出を引くと
+    /// 大きな数字と一致するので、計算が追える。繰越が0円の日は括弧を出さない。
     private static func breakdownLine(_ breakdown: TodayBreakdown) -> String {
-        var parts = [
-            "予算 " + Yen.amount(breakdown.dailyBudgetYen),
-            "繰越 " + Yen.signedAmount(breakdown.carryOverYen)
-        ]
-        if breakdown.todayExpenseYen > 0 {
-            parts.append("支出 −" + Yen.amount(breakdown.todayExpenseYen))
+        let budget = breakdown.dailyBudgetYen + breakdown.carryOverYen
+        var line = "予算 " + Yen.amount(budget)
+        if breakdown.carryOverYen != 0 {
+            line += "（繰越 " + Yen.signedAmount(breakdown.carryOverYen) + "）"
         }
-        return parts.joined(separator: " ・ ")
+        if breakdown.todayExpenseYen > 0 {
+            line += " ・ 支出 −" + Yen.amount(breakdown.todayExpenseYen)
+        }
+        return line
     }
 
     private static func breakdownAccessibilityLabel(_ breakdown: TodayBreakdown) -> String {
-        var parts = [
-            "1日の予算 \(Yen.spoken(breakdown.dailyBudgetYen))",
-            "繰越 \(Yen.spoken(breakdown.carryOverYen))"
-        ]
+        let budget = breakdown.dailyBudgetYen + breakdown.carryOverYen
+        var parts = ["予算 \(Yen.spoken(budget))"]
+        if breakdown.carryOverYen != 0 {
+            parts.append("うち繰越 \(Yen.spoken(breakdown.carryOverYen))")
+        }
         if breakdown.todayExpenseYen > 0 {
             parts.append("支出 \(Yen.spoken(breakdown.todayExpenseYen))")
         }

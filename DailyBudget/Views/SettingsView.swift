@@ -13,7 +13,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("1日の予算") {
+                Section("予算") {
                     LabeledContent("1日の予算") {
                         Text(verbatim: store.currentDailyAmountYen.map(Yen.amount) ?? "—")
                             .monospacedDigit()
@@ -33,8 +33,6 @@ struct SettingsView: View {
                         }
                     } header: {
                         Text("変更履歴")
-                    } footer: {
-                        Text("適用を始めた日ごとに記録しています。過去の予算は後から変わりません。")
                     }
                 }
 
@@ -42,18 +40,8 @@ struct SettingsView: View {
                     LabeledContent("通貨", value: "日本円（JPY）")
                     LabeledContent("タイムゾーン", value: AppConstants.timeZoneIdentifier)
                     if let activeStartDate = store.activeStartDate {
-                        LabeledContent("使い始めた日", value: activeStartDate.japaneseLongText)
+                        LabeledContent("利用開始", value: activeStartDate.japaneseLongText)
                     }
-                }
-
-                Section {
-                    // #13 ではじめる画面から移した案内。PRD §9 が画面上での明示を求めている。
-                    Text("記録はこの端末の中にだけ保存されます。第三者へ送信されることはありません。機種変更・端末の故障・アプリの削除では記録を引き継げません。")
-                        .font(.footnote)
-                    LabeledContent("データの書き出し", value: "今後のアップデートで対応")
-                        .foregroundStyle(.secondary)
-                } header: {
-                    Text("データの取り扱い")
                 }
 
                 Section("アプリについて") {
