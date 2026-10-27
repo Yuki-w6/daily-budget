@@ -3,6 +3,9 @@ import Charts
 import DailyBudgetCore
 
 /// 画面E：月次レポート。月を選んで実績・推移・カテゴリ別支出を振り返る（PRD §5.6）。
+///
+/// 数字を並べるのではなく、「本日までの累積余剰」を1つの大きな数字として出し、
+/// その根拠と月末の見込みを文章で添える。
 struct MonthlyReportView: View {
     let store: BudgetStore
 
@@ -15,13 +18,9 @@ struct MonthlyReportView: View {
             Group {
                 if let detail, let selectedMonth {
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 24) {
+                        VStack(alignment: .leading, spacing: 28) {
                             monthPicker(selectedMonth)
-                            statusAndTotals(detail)
-                            if detail.isInProgress, let projection = detail.projection {
-                                Divider()
-                                projectionSection(projection)
-                            }
+                            summarySection(detail)
                             Divider()
                             surplusChart(detail)
                             Divider()
@@ -31,7 +30,8 @@ struct MonthlyReportView: View {
                                 pastMonthsSection()
                             }
                         }
-                        .padding()
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
                     }
                 } else {
                     ContentUnavailableView(
@@ -64,69 +64,85 @@ struct MonthlyReportView: View {
         let months = (store.browsableMonths.map { Array($0.lowerBound.through($0.upperBound)) } ?? [])
             .reversed()
 
-        return Menu {
-            ForEach(Array(months), id: \.self) { candidate in
-                Button {
-                    selectedMonth = candidate
-                } label: {
-                    if candidate == month {
-                        Label(monthText(candidate), systemImage: "checkmark")
-                    } else {
-                        Text(verbatim: monthText(candidate))
+        return HStack {
+            Menu {
+                ForEach(Array(months), id: \.self) { candidate in
+                    Button {
+                        selectedMonth = candidate
+                    } label: {
+                        if candidate == month {
+                            Label(monthText(candidate), systemImage: "checkmark")
+                        } else {
+                            Text(verbatim: monthText(candidate))
+                        }
                     }
                 }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(verbatim: monthText(month))
+                        .font(.headline)
+                    Image(systemName: "chevron.down")
+                        .font(.caption)
+                }
             }
-        } label: {
-            HStack {
-                Text(verbatim: monthText(month))
-                    .font(.headline)
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.caption)
+            .accessibilityLabel("表示する月。現在 \(monthText(month))")
+
+            Spacer()
+
+            if let detail {
+                Text(detail.isClosed ? "確定済み" : "進行中")
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(.quaternary, in: Capsule())
             }
         }
-        .accessibilityLabel("表示する月。現在 \(monthText(month))")
     }
 
     private func monthText(_ month: YearMonth) -> String {
         "\(month.year)年\(month.month)月"
     }
 
-    // MARK: ステータスと実績
+    // MARK: 要点
 
-    private func statusAndTotals(_ detail: MonthDetail) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Text(detail.isClosed ? "確定済み" : "進行中")
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.quaternary, in: Capsule())
-                if detail.isClosed, let closedAt = detail.settlement?.closedAt {
-                    Text(verbatim: "確定日時 " + Self.dateTimeText(closedAt))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+    private func summarySection(_ detail: MonthDetail) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verbatim: Yen.signedAmount(detail.summary.surplusYen))
+                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                    .foregroundStyle(detail.summary.surplusYen < 0 ? .red : .primary)
+                Text(detail.isClosed ? "確定した累積余剰" : "本日までの累積余剰")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-
-            Text(detail.isClosed ? "確定した実績" : "今月の実績（本日まで）")
-                .font(.headline)
-
-            totalRow("月間予算", Yen.amount(detail.summary.budgetTotalYen))
-            totalRow("支出総額", Yen.amount(detail.summary.expenseTotalYen))
-            totalRow(
-                detail.summary.surplusYen < 0 ? "超過" : "累積余剰",
-                Yen.signedAmount(detail.summary.surplusYen)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(
+                "\(detail.isClosed ? "確定した累積余剰" : "本日までの累積余剰") "
+                    + Yen.spoken(detail.summary.surplusYen)
             )
-            // ホームから移した項目（#13）。
-            totalRow("経過日数", "\(detail.summary.days.count)日")
 
             if detail.summary.surplusYen < 0 {
+                // 色だけに頼らず文字でも伝える（PRD §8.3 / §9）。
                 Label(
                     "予算を\(Yen.amount(abs(detail.summary.surplusYen)))超過しています",
                     systemImage: "exclamationmark.triangle.fill"
                 )
-                .font(.footnote.weight(.semibold))
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.red)
+            }
+
+            Text(verbatim: contextLine(detail))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            if let projection = detail.projection, detail.isInProgress {
+                // 未来日の予算を含む見込み。実績と別物だと分かる書き方にする（PRD §5.6）。
+                Text(verbatim: "このまま使わなければ、月末は "
+                    + Yen.signedAmount(projection.projectedSurplusYen))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
 
             if detail.isClosed {
@@ -139,19 +155,16 @@ struct MonthlyReportView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// 月末見込み。実績と混ぜず、見出しと説明文で別物だと示す（PRD §5.6）。
-    private func projectionSection(_ projection: MonthEndProjection) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("月末の見込み")
-                .font(.headline)
-            Text("残りの日に支出がなかった場合の金額です。上の実績とは別の数字です。")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            totalRow("月間予算（月末まで）", Yen.amount(projection.budgetTotalYen))
-            totalRow("本日までの支出", Yen.amount(projection.expenseTotalToDateYen))
-            totalRow("見込み余剰", Yen.signedAmount(projection.projectedSurplusYen))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    /// 大きな数字の根拠を1行で示す。
+    private func contextLine(_ detail: MonthDetail) -> String {
+        let days = detail.isClosed
+            ? "\(detail.summary.days.count)日分"
+            : "\(detail.summary.days.count)日経過"
+        return [
+            days,
+            "予算 " + Yen.amount(detail.summary.budgetTotalYen),
+            "支出 " + Yen.amount(detail.summary.expenseTotalYen)
+        ].joined(separator: " ・ ")
     }
 
     // MARK: 累積余剰グラフ
@@ -179,7 +192,7 @@ struct MonthlyReportView: View {
                     }
                 }
                 .chartXAxis {
-                    AxisMarks(values: .stride(by: 5)) { value in
+                    AxisMarks(values: xAxisValues(detail)) { value in
                         AxisGridLine()
                         AxisValueLabel {
                             if let day = value.as(Int.self) {
@@ -189,7 +202,9 @@ struct MonthlyReportView: View {
                     }
                 }
                 .chartYAxis {
-                    AxisMarks { value in
+                    // 縦軸を左に置く。右に置くと横軸の末日のラベルが縦軸の領域に
+                    // かぶって切れる。
+                    AxisMarks(position: .leading) { value in
                         AxisGridLine()
                         AxisValueLabel {
                             if let yen = value.as(Int.self) {
@@ -207,6 +222,13 @@ struct MonthlyReportView: View {
                 .accessibilityValue(chartAccessibilityValue(detail))
             }
         }
+    }
+
+    /// 横軸の目盛り位置。5日おきに置くが、月末に近すぎる目盛りは外す。
+    /// 描画領域の端に来るラベルはグラフ側で切り取られ、「30」が「3」に見えてしまう。
+    private func xAxisValues(_ detail: MonthDetail) -> [Int] {
+        let lastDay = detail.yearMonth.dayCount
+        return Array(stride(from: 5, through: lastDay, by: 5)).filter { $0 <= lastDay - 2 }
     }
 
     /// 0円の基準線が必ず見えるよう、描画範囲に0を含める（PRD §5.6）。
@@ -229,9 +251,10 @@ struct MonthlyReportView: View {
     // MARK: カテゴリ別支出
 
     private func categorySection(_ detail: MonthDetail) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             Text("カテゴリ別支出")
                 .font(.headline)
+                .padding(.bottom, 4)
 
             let shares = detail.categoryShares
             if shares.isEmpty {
@@ -240,28 +263,25 @@ struct MonthlyReportView: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(shares) { share in
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text(share.name)
-                            Spacer()
-                            Text(verbatim: Yen.amount(share.amountYen))
-                                .monospacedDigit()
-                            Text(verbatim: Self.percentText(share.share))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                                .frame(width: 52, alignment: .trailing)
-                        }
-                        // 構成比は数字でも示したうえで、棒は補助として添える。
-                        ProgressView(value: share.share)
-                            .tint(.accentColor)
+                    HStack {
+                        Text(share.name)
+                        Spacer()
+                        Text(verbatim: Yen.amount(share.amountYen))
+                            .monospacedDigit()
+                        Text(verbatim: Self.percentText(share.share))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                            .frame(width: 44, alignment: .trailing)
                     }
                     .font(.subheadline)
+                    .padding(.vertical, 6)
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(
                         "\(share.name) \(Yen.spoken(share.amountYen))、"
                             + "構成比 \(Self.percentText(share.share))"
                     )
+                    Divider()
                 }
             }
         }
@@ -270,35 +290,28 @@ struct MonthlyReportView: View {
     // MARK: 過去月一覧
 
     private func pastMonthsSection() -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             Text("過去月の確定結果")
                 .font(.headline)
+                .padding(.bottom, 4)
 
             ForEach(settlements) { settlement in
                 Button {
                     selectedMonth = settlement.yearMonth
                 } label: {
-                    HStack(alignment: .firstTextBaseline) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(verbatim: monthText(settlement.yearMonth))
-                            Text(verbatim: "予算 \(Yen.amount(settlement.budgetTotalYen))"
-                                + " / 支出 \(Yen.amount(settlement.expenseTotalYen))")
-                                .font(.caption)
+                    HStack {
+                        Text(verbatim: monthText(settlement.yearMonth))
+                        if settlement.status == .reopened {
+                            Text("編集中")
+                                .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text(verbatim: Yen.signedAmount(settlement.surplusYen))
-                                .monospacedDigit()
-                            if settlement.status == .reopened {
-                                Text("編集中")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+                        Text(verbatim: Yen.signedAmount(settlement.surplusYen))
+                            .monospacedDigit()
                     }
                     .font(.subheadline)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 8)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -307,27 +320,7 @@ struct MonthlyReportView: View {
         }
     }
 
-    // MARK: 補助
-
-    private func totalRow(_ title: String, _ value: String) -> some View {
-        HStack {
-            Text(title)
-            Spacer()
-            Text(verbatim: value).monospacedDigit().fontWeight(.medium)
-        }
-        .font(.subheadline)
-        .accessibilityElement(children: .combine)
-    }
-
     private static func percentText(_ share: Double) -> String {
         "\(Int((share * 100).rounded()))%"
-    }
-
-    private static func dateTimeText(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.timeZone = AppConstants.budgetTimeZone
-        formatter.dateFormat = "yyyy/MM/dd HH:mm"
-        return formatter.string(from: date)
     }
 }
