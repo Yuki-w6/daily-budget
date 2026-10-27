@@ -19,11 +19,15 @@ struct MonthlyReportView: View {
                             monthPicker(selectedMonth)
                             statusAndTotals(detail)
                             if detail.isInProgress, let projection = detail.projection {
+                                Divider()
                                 projectionSection(projection)
                             }
+                            Divider()
                             surplusChart(detail)
+                            Divider()
                             categorySection(detail)
                             if !settlements.isEmpty {
+                                Divider()
                                 pastMonthsSection()
                             }
                         }
@@ -113,6 +117,8 @@ struct MonthlyReportView: View {
                 detail.summary.surplusYen < 0 ? "超過" : "累積余剰",
                 Yen.signedAmount(detail.summary.surplusYen)
             )
+            // ホームから移した項目（#13）。
+            totalRow("経過日数", "\(detail.summary.days.count)日")
 
             if detail.summary.surplusYen < 0 {
                 Label(
@@ -130,12 +136,10 @@ struct MonthlyReportView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
     }
 
-    /// 月末見込み。実績と並べず、別の枠に「見込み」と明記する（PRD §5.6）。
+    /// 月末見込み。実績と混ぜず、見出しと説明文で別物だと示す（PRD §5.6）。
     private func projectionSection(_ projection: MonthEndProjection) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("月末の見込み")
@@ -147,11 +151,7 @@ struct MonthlyReportView: View {
             totalRow("本日までの支出", Yen.amount(projection.expenseTotalToDateYen))
             totalRow("見込み余剰", Yen.signedAmount(projection.projectedSurplusYen))
         }
-        .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12).strokeBorder(.quaternary, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-        )
     }
 
     // MARK: 累積余剰グラフ

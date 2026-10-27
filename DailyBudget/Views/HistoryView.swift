@@ -22,7 +22,7 @@ struct HistoryView: View {
                                 closedNotice(detail)
                             }
                             calendar(detail, month: displayedMonth)
-                            monthTotals(detail)
+                            monthSummaryLine(detail)
                         }
                         .padding()
                     }
@@ -98,9 +98,8 @@ struct HistoryView: View {
             Image(systemName: "lock")
         }
         .font(.footnote)
+        .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 8))
     }
 
     // MARK: カレンダー
@@ -196,26 +195,21 @@ struct HistoryView: View {
 
     // MARK: 月の合計
 
-    private func monthTotals(_ detail: MonthDetail) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("この月の実績")
-                .font(.headline)
-                .padding(.bottom, 2)
-            totalRow("累積予算", Yen.amount(detail.summary.budgetTotalYen))
-            totalRow("累積支出", Yen.amount(detail.summary.expenseTotalYen))
-            totalRow("累積余剰", Yen.signedAmount(detail.summary.surplusYen))
-        }
-        .padding()
-        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
-    }
-
-    private func totalRow(_ title: String, _ value: String) -> some View {
+    /// 詳しい内訳は月次レポートにあるので、ここは1行にとどめる。
+    private func monthSummaryLine(_ detail: MonthDetail) -> some View {
         HStack {
-            Text(title)
+            Text("この月の累積余剰")
             Spacer()
-            Text(value).monospacedDigit().fontWeight(.medium)
+            Text(verbatim: Yen.signedAmount(detail.summary.surplusYen))
+                .monospacedDigit()
+                .fontWeight(.medium)
+                .foregroundStyle(detail.summary.surplusYen < 0 ? .red : .primary)
         }
         .font(.subheadline)
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "この月の累積余剰 \(Yen.spoken(detail.summary.surplusYen))"
+        )
     }
+
 }
