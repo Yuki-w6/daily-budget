@@ -189,7 +189,7 @@ struct HistoryView: View {
             return parts.joined(separator: "、")
         }
         parts.append("支出 \(Yen.spoken(summary.expenseYen))")
-        parts.append("累積余剰 \(Yen.spoken(summary.cumulativeSurplusYen))")
+        parts.append("残り \(Yen.spoken(summary.cumulativeSurplusYen))")
         return parts.joined(separator: "、")
     }
 
@@ -198,7 +198,7 @@ struct HistoryView: View {
     /// 詳しい内訳は月次レポートにあるので、ここは1行にとどめる。
     private func monthSummaryLine(_ detail: MonthDetail) -> some View {
         HStack {
-            Text("この月の累積余剰")
+            Text("残り")
             Spacer()
             Text(verbatim: Yen.signedAmount(detail.summary.surplusYen))
                 .monospacedDigit()
@@ -208,7 +208,7 @@ struct HistoryView: View {
         .font(.subheadline)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            "この月の累積余剰 \(Yen.spoken(detail.summary.surplusYen))"
+            "この月の残り \(Yen.spoken(detail.summary.surplusYen))"
         )
     }
 

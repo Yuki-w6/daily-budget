@@ -68,22 +68,22 @@ struct HomeView: View {
     /// 内訳は1行にまとめる。今日の支出は、ある日だけ足す（0円の日は出さない）。
     private static func breakdownLine(_ breakdown: TodayBreakdown) -> String {
         var parts = [
-            "日額 " + Yen.amount(breakdown.dailyBudgetYen),
+            "予算 " + Yen.amount(breakdown.dailyBudgetYen),
             "繰越 " + Yen.signedAmount(breakdown.carryOverYen)
         ]
         if breakdown.todayExpenseYen > 0 {
-            parts.append("本日 −" + Yen.amount(breakdown.todayExpenseYen))
+            parts.append("支出 −" + Yen.amount(breakdown.todayExpenseYen))
         }
         return parts.joined(separator: " ・ ")
     }
 
     private static func breakdownAccessibilityLabel(_ breakdown: TodayBreakdown) -> String {
         var parts = [
-            "日額予算 \(Yen.spoken(breakdown.dailyBudgetYen))",
-            "前日までの繰越 \(Yen.spoken(breakdown.carryOverYen))"
+            "1日の予算 \(Yen.spoken(breakdown.dailyBudgetYen))",
+            "繰越 \(Yen.spoken(breakdown.carryOverYen))"
         ]
         if breakdown.todayExpenseYen > 0 {
-            parts.append("今日の支出 \(Yen.spoken(breakdown.todayExpenseYen))")
+            parts.append("支出 \(Yen.spoken(breakdown.todayExpenseYen))")
         }
         return parts.joined(separator: "、")
     }

@@ -107,21 +107,18 @@ struct MonthlyReportView: View {
 
     private func summarySection(_ detail: MonthDetail) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("累計")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                 Text(verbatim: Yen.signedAmount(detail.summary.surplusYen))
                     .font(.system(size: 44, weight: .bold, design: .rounded))
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)
                     .foregroundStyle(detail.summary.surplusYen < 0 ? .red : .primary)
-                Text(detail.isClosed ? "確定した累積余剰" : "本日までの累積余剰")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel(
-                "\(detail.isClosed ? "確定した累積余剰" : "本日までの累積余剰") "
-                    + Yen.spoken(detail.summary.surplusYen)
-            )
+            .accessibilityLabel("累計 " + Yen.spoken(detail.summary.surplusYen))
 
             Text(verbatim: contextLine(detail))
                 .font(.footnote)
@@ -137,7 +134,7 @@ struct MonthlyReportView: View {
 
             if detail.isClosed {
                 // 確定した余剰は過去の実績であって残高ではない（PRD §6.2）。
-                Text("確定した余剰は過去の実績です。翌月の予算には繰り越されません。")
+                Text("この月の結果です。翌月には繰り越されません。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -161,7 +158,7 @@ struct MonthlyReportView: View {
 
     private func surplusChart(_ detail: MonthDetail) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("累積余剰の推移")
+            Text("累計の推移")
                 .font(.headline)
 
             if detail.summary.days.isEmpty {
@@ -171,13 +168,13 @@ struct MonthlyReportView: View {
             } else {
                 Chart {
                     // 0円の基準線（PRD §5.6）。
-                    RuleMark(y: .value("基準", 0))
+                    RuleMark(y: .value("0円", 0))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
                         .foregroundStyle(.secondary)
                     ForEach(detail.summary.days, id: \.day) { summary in
                         LineMark(
                             x: .value("日", summary.day.day),
-                            y: .value("累積余剰", summary.cumulativeSurplusYen)
+                            y: .value("残り", summary.cumulativeSurplusYen)
                         )
                     }
                 }
@@ -208,7 +205,7 @@ struct MonthlyReportView: View {
                 .chartXScale(domain: 1...detail.yearMonth.dayCount)
                 .chartYScale(domain: yAxisDomain(detail))
                 .frame(height: 200)
-                .accessibilityLabel("累積余剰の推移")
+                .accessibilityLabel("累計の推移")
                 .accessibilityValue(chartAccessibilityValue(detail))
             }
         }
@@ -242,7 +239,7 @@ struct MonthlyReportView: View {
 
     private func categorySection(_ detail: MonthDetail) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("カテゴリ別支出")
+            Text("内訳")
                 .font(.headline)
                 .padding(.bottom, 4)
 
@@ -281,7 +278,7 @@ struct MonthlyReportView: View {
 
     private func pastMonthsSection() -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("過去月の確定結果")
+            Text("これまでの月")
                 .font(.headline)
                 .padding(.bottom, 4)
 

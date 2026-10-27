@@ -20,10 +20,10 @@ struct DayDetailView: View {
     var body: some View {
         List {
             if let summary = detail?.dailySummary(on: day) {
-                Section("この日の集計") {
-                    row("日次予算", Yen.amount(summary.budgetYen))
-                    row("日次支出", Yen.amount(summary.expenseYen))
-                    row("終了時点の累積余剰", Yen.signedAmount(summary.cumulativeSurplusYen))
+                Section("集計") {
+                    row("予算", Yen.amount(summary.budgetYen))
+                    row("支出", Yen.amount(summary.expenseYen))
+                    row("残り", Yen.signedAmount(summary.cumulativeSurplusYen))
                     if summary.cumulativeSurplusYen < 0 {
                         Label(
                             "予算を\(Yen.amount(abs(summary.cumulativeSurplusYen)))超過しています",
@@ -35,7 +35,7 @@ struct DayDetailView: View {
                 }
             }
 
-            Section("支出") {
+            Section("明細") {
                 if expenses.isEmpty {
                     // 未記録の日は支出0円として扱う（PRD §5.5）。
                     Text("この日の支出はありません。")

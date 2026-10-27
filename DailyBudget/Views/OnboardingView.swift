@@ -57,10 +57,10 @@ struct OnboardingView: View {
                     .font(.system(size: 44, weight: .bold, design: .rounded))
                     .keyboardType(.numberPad)
                     .focused($amountFocused)
-                    .accessibilityLabel("日額予算")
+                    .accessibilityLabel("1日の予算")
             }
             Divider()
-            Text("日額予算")
+            Text("1日の予算")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
