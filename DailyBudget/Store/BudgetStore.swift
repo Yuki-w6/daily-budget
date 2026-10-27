@@ -103,6 +103,8 @@ final class BudgetStore {
 
     /// 起動・フォアグラウンド復帰時に呼ぶ。未確定の過去月を確定してから派生状態を読み直す。
     func bootstrap() {
+        // 同期で入ってきた重複を先に片付けてから集計する（#14）。
+        deduplicateRecords()
         seedCategoriesIfNeeded()
         settlePendingMonths()
         reload()
@@ -118,6 +120,7 @@ final class BudgetStore {
         }()
         settings.activeStartDateISO = startDate.iso
         settings.onboardingCompleted = true
+        settings.updatedAt = clock()
 
         context.insert(
             BudgetRuleEntity(effectiveFromISO: startDate.iso, dailyAmountYen: dailyAmountYen)
@@ -219,7 +222,8 @@ final class BudgetStore {
         let now = clock()
 
         var descriptor = FetchDescriptor<BudgetRuleEntity>(
-            predicate: #Predicate { $0.effectiveFromISO == effectiveFromISO }
+            predicate: #Predicate { $0.effectiveFromISO == effectiveFromISO },
+            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
         descriptor.fetchLimit = 1
         if let existing = (try? context.fetch(descriptor))?.first {
@@ -412,7 +416,8 @@ final class BudgetStore {
     private func fetchSettlementEntity(for yearMonth: YearMonth) -> MonthlySettlementEntity? {
         let monthISO = yearMonth.iso
         var descriptor = FetchDescriptor<MonthlySettlementEntity>(
-            predicate: #Predicate { $0.yearMonthISO == monthISO }
+            predicate: #Predicate { $0.yearMonthISO == monthISO },
+            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
         descriptor.fetchLimit = 1
         return (try? context.fetch(descriptor))?.first
@@ -475,7 +480,10 @@ final class BudgetStore {
     }
 
     private func fetchSettings() throws -> AppSettingsEntity? {
-        var descriptor = FetchDescriptor<AppSettingsEntity>()
+        // 同期で設定レコードが複数できることがある。更新が新しいものを使う。
+        var descriptor = FetchDescriptor<AppSettingsEntity>(
+            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+        )
         descriptor.fetchLimit = 1
         return try context.fetch(descriptor).first
     }
@@ -519,12 +527,7 @@ final class BudgetStore {
     }
 
     private func fetchSettlement(for yearMonth: YearMonth) -> MonthlySettlement? {
-        let monthISO = yearMonth.iso
-        var descriptor = FetchDescriptor<MonthlySettlementEntity>(
-            predicate: #Predicate { $0.yearMonthISO == monthISO }
-        )
-        descriptor.fetchLimit = 1
-        guard let entity = (try? context.fetch(descriptor))?.first else { return nil }
+        guard let entity = fetchSettlementEntity(for: yearMonth) else { return nil }
         return Self.settlement(from: entity)
     }
 
@@ -562,13 +565,101 @@ final class BudgetStore {
         return ExpenseEntry(id: entity.uuid, spentOn: spentOn, amountYen: entity.amountYen)
     }
 
-    /// 初期カテゴリを一度だけ作る（PRD §7.3）。
+    /// 初期カテゴリを作る（PRD §7.3）。
+    ///
+    /// 一意制約が無いので「空なら作る」では足りない。同期で先に一部だけ流れ込んで
+    /// いることがあるため、名前で突き合わせて不足分だけを足す。
     private func seedCategoriesIfNeeded() {
-        guard fetchCategories().isEmpty else { return }
-        for (index, name) in AppConstants.defaultCategoryNames.enumerated() {
+        let existingNames = Set(fetchCategories().map(\.name))
+        let missing = AppConstants.defaultCategoryNames.enumerated()
+            .filter { !existingNames.contains($0.element) }
+        guard !missing.isEmpty else { return }
+        for (index, name) in missing {
             context.insert(ExpenseCategoryEntity(name: name, sortOrder: index))
         }
         try? save()
+    }
+
+    // MARK: - 重複の解消
+
+    /// 同じキーのレコードが複数ある状態を解消する。
+    ///
+    /// CloudKit は一意制約を持てないため、2台で同時に同じ操作をすると
+    /// 同じキーのレコードが2件できる。残すレコードは `DuplicateResolution` が決め、
+    /// どの端末で実行しても同じ結果になる。
+    private func deduplicateRecords() {
+        var changed = false
+        changed = dedupe(
+            (try? context.fetch(FetchDescriptor<AppSettingsEntity>())) ?? [],
+            key: { _ in "settings" },
+            updatedAt: \.updatedAt,
+            id: \.uuid
+        ) || changed
+        changed = dedupe(
+            (try? context.fetch(FetchDescriptor<BudgetRuleEntity>())) ?? [],
+            key: \.effectiveFromISO,
+            updatedAt: \.updatedAt,
+            id: \.uuid
+        ) || changed
+        changed = dedupe(
+            (try? context.fetch(FetchDescriptor<MonthlySettlementEntity>())) ?? [],
+            key: \.yearMonthISO,
+            updatedAt: \.updatedAt,
+            id: \.uuid
+        ) || changed
+        changed = dedupeCategories() || changed
+
+        guard changed else { return }
+        do {
+            try save()
+        } catch {
+            // 片付けに失敗しても集計自体は続けられる。次回起動で再試行する。
+            context.rollback()
+        }
+    }
+
+    /// キーごとに1件だけ残し、残りを削除する。削除したら `true`。
+    private func dedupe<T: PersistentModel>(
+        _ entities: [T],
+        key: (T) -> String,
+        updatedAt: KeyPath<T, Date>,
+        id: KeyPath<T, UUID>
+    ) -> Bool {
+        var removed = false
+        for (_, group) in Dictionary(grouping: entities, by: key) where group.count > 1 {
+            let candidates = group.map {
+                DuplicateCandidate(id: $0[keyPath: id], updatedAt: $0[keyPath: updatedAt])
+            }
+            guard let survivor = DuplicateResolution.survivor(among: candidates) else { continue }
+            for entity in group where entity[keyPath: id] != survivor {
+                context.delete(entity)
+                removed = true
+            }
+        }
+        return removed
+    }
+
+    /// カテゴリの重複は、支出の付け替えを伴う。
+    private func dedupeCategories() -> Bool {
+        var removed = false
+        let categories = fetchCategories()
+        for (_, group) in Dictionary(grouping: categories, by: \.name) where group.count > 1 {
+            let candidates = group.map {
+                DuplicateCandidate(id: $0.uuid, updatedAt: $0.updatedAt)
+            }
+            guard let survivorID = DuplicateResolution.survivor(among: candidates),
+                  let survivor = group.first(where: { $0.uuid == survivorID })
+            else { continue }
+            for loser in group where loser.uuid != survivorID {
+                // 支出からカテゴリが消えないよう、残すほうへ付け替えてから削除する。
+                for expense in loser.expenses ?? [] {
+                    expense.category = survivor
+                }
+                context.delete(loser)
+                removed = true
+            }
+        }
+        return removed
     }
 }
 

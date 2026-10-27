@@ -31,9 +31,13 @@ struct DailyBudgetApp: App {
             MonthlySettlementEntity.self
         ])
         do {
-            return .success(
-                try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema))
+            // iCloud の個人データベースに同期する（#14）。サインインしていない端末でも
+            // ローカルのデータベースとして動き、サインイン後に同期が始まる。
+            let configuration = ModelConfiguration(
+                schema: schema,
+                cloudKitDatabase: .private(AppConstants.iCloudContainerIdentifier)
             )
+            return .success(try ModelContainer(for: schema, configurations: configuration))
         } catch {
             return .failure(error)
         }
