@@ -321,8 +321,14 @@ final class BudgetStore {
         let expenses = fetchExpenses(in: yearMonth)
         let entries = expenses.compactMap(Self.entry(from:))
         // 月末見込みは進行中の月にだけ意味がある。実績と混同させないため別の値として持つ。
+        // 経過日数が足りない月は nil が返る。
         let projection = yearMonth == today.yearMonth
-            ? calculator.monthEndProjection(for: yearMonth, expenses: entries, asOf: today)
+            ? SpendingPace.projection(
+                calculator: calculator,
+                yearMonth: yearMonth,
+                expenses: entries,
+                asOf: today
+            )
             : nil
         return MonthDetail(
             yearMonth: yearMonth,
@@ -508,8 +514,9 @@ struct MonthDetail {
     /// その月の支出。日付昇順。
     let expenses: [ExpenseEntity]
     let settlement: MonthlySettlement?
-    /// 進行中の月のみ。未来日の予算を含む月末見込み（PRD §5.6）。実績とは別物として扱う。
-    let projection: MonthEndProjection?
+    /// 進行中の月のみ。平均支出から見積もる月末の見込み（PRD §5.6）。
+    /// 経過日数が足りなければ `nil`。
+    let projection: SpendingPaceProjection?
 
     /// 確定済みで閲覧専用か（PRD §5.5 / §6.3）。
     var isClosed: Bool { settlement?.status == .closed }

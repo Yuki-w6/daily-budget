@@ -123,28 +123,16 @@ struct MonthlyReportView: View {
                     + Yen.spoken(detail.summary.surplusYen)
             )
 
-            if detail.summary.surplusYen < 0 {
-                // 色だけに頼らず文字でも伝える（PRD §8.3 / §9）。
-                Label(
-                    "予算を\(Yen.amount(abs(detail.summary.surplusYen)))超過しています",
-                    systemImage: "exclamationmark.triangle.fill"
-                )
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.red)
-            }
-
             Text(verbatim: contextLine(detail))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
             if let projection = detail.projection, detail.isInProgress {
-                // 未来日の予算を含む見込み（PRD §5.6）。「〜そう」で実績ではないと示す。
-                Text(verbatim: Self.projectionText(projection.projectedSurplusYen))
+                // 今月の平均支出が続いた場合の月末（PRD §5.6）。経過日数が足りない月は出ない。
+                Text(verbatim: Self.projectionText(projection))
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(Self.projectionColor(projection.projectedSurplusYen))
-                    .accessibilityLabel(
-                        Self.projectionAccessibilityLabel(projection.projectedSurplusYen)
-                    )
+                    .accessibilityLabel(Self.projectionAccessibilityLabel(projection))
             }
 
             if detail.isClosed {
@@ -325,10 +313,15 @@ struct MonthlyReportView: View {
     // MARK: 月末の見込みの文言
 
     /// 超過と余りで言い回しを変える。色が見えなくても、どちらなのかが文字で分かる（PRD §9）。
-    private static func projectionText(_ yen: Int64) -> String {
-        if yen < 0 { return "\(Yen.amount(abs(yen)))超えちゃいそう" }
+    ///
+    /// 月末まで来ていれば見積もりではなく実績なので、「〜そう」を使わない。
+    private static func projectionText(_ projection: SpendingPaceProjection) -> String {
+        let yen = projection.projectedSurplusYen
         if yen == 0 { return "予算ピッタリ" }
-        return "\(Yen.amount(yen))浮きそう"
+        if projection.isActual {
+            return yen < 0 ? "\(Yen.amount(abs(yen)))超過" : "\(Yen.amount(yen))浮いた"
+        }
+        return yen < 0 ? "\(Yen.amount(abs(yen)))超えちゃいそう" : "\(Yen.amount(yen))浮きそう"
     }
 
     private static func projectionColor(_ yen: Int64) -> Color {
@@ -337,10 +330,16 @@ struct MonthlyReportView: View {
         return .blue
     }
 
-    private static func projectionAccessibilityLabel(_ yen: Int64) -> String {
-        if yen < 0 { return "月末の見込み。\(Yen.spoken(abs(yen)))超えそうです" }
-        if yen == 0 { return "月末の見込み。予算ぴったりです" }
-        return "月末の見込み。\(Yen.spoken(yen))余りそうです"
+    private static func projectionAccessibilityLabel(_ projection: SpendingPaceProjection) -> String {
+        let yen = projection.projectedSurplusYen
+        if projection.isActual {
+            if yen < 0 { return "月末の実績。\(Yen.spoken(abs(yen)))超過しました" }
+            if yen == 0 { return "月末の実績。予算ぴったりでした" }
+            return "月末の実績。\(Yen.spoken(yen))余りました"
+        }
+        if yen < 0 { return "今月の平均支出が続いた場合の月末。\(Yen.spoken(abs(yen)))超えそうです" }
+        if yen == 0 { return "今月の平均支出が続いた場合の月末。予算ぴったりです" }
+        return "今月の平均支出が続いた場合の月末。\(Yen.spoken(yen))余りそうです"
     }
 
     private static func percentText(_ share: Double) -> String {

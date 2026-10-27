@@ -153,21 +153,6 @@ public struct BudgetCalculator: Sendable {
         )
     }
 
-    /// 月末時点の見込み。未来日の予算を加算するため、実績（`monthSummary`）とは別物として扱う（PRD §5.6）。
-    public func monthEndProjection(
-        for yearMonth: YearMonth,
-        expenses: [ExpenseEntry],
-        asOf: CalendarDay
-    ) -> MonthEndProjection {
-        let fullMonth = monthSummary(for: yearMonth, expenses: expenses, asOf: nil)
-        let toDate = monthSummary(for: yearMonth, expenses: expenses, asOf: asOf)
-        return MonthEndProjection(
-            yearMonth: yearMonth,
-            budgetTotalYen: fullMonth.budgetTotalYen,
-            expenseTotalToDateYen: toDate.expenseTotalYen
-        )
-    }
-
     // MARK: - 月末確定
 
     /// 対象月の確定値を算出する（PRD §6.2 の 1〜3）。
@@ -201,22 +186,4 @@ public struct BudgetCalculator: Sendable {
         }
         return totals
     }
-}
-
-/// 月末見込み。実績と区別するために専用の型にする（PRD §5.6）。
-public struct MonthEndProjection: Hashable, Sendable {
-    public let yearMonth: YearMonth
-    /// 月全体の日額予算の合計。
-    public let budgetTotalYen: Int64
-    /// 閲覧日までの支出合計。
-    public let expenseTotalToDateYen: Int64
-
-    public init(yearMonth: YearMonth, budgetTotalYen: Int64, expenseTotalToDateYen: Int64) {
-        self.yearMonth = yearMonth
-        self.budgetTotalYen = budgetTotalYen
-        self.expenseTotalToDateYen = expenseTotalToDateYen
-    }
-
-    /// 残りの日に支出が無かった場合の月末余剰。
-    public var projectedSurplusYen: Int64 { budgetTotalYen - expenseTotalToDateYen }
 }
