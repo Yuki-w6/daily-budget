@@ -13,12 +13,15 @@ final class BudgetStore {
     /// 保存に失敗したことを画面に伝えるためのエラー。入力内容は呼び出し側で保持する。
     enum StoreError: LocalizedError {
         case notConfigured
+        case invalidAmount
         case saveFailed(underlying: String)
 
         var errorDescription: String? {
             switch self {
             case .notConfigured:
                 "初期設定が完了していません。"
+            case .invalidAmount:
+                "金額は1円以上の整数で入力してください。"
             case .saveFailed(let underlying):
                 "保存できませんでした。もう一度お試しください。（\(underlying)）"
             }
@@ -161,6 +164,90 @@ final class BudgetStore {
 
     func deleteExpense(_ expense: ExpenseEntity) throws {
         context.delete(expense)
+        try save()
+        reload()
+    }
+
+    // MARK: - 日額予算の変更
+
+    /// 今日適用されている日額予算。
+    var currentDailyAmountYen: Int64? {
+        guard let calculator else { return nil }
+        let amount = calculator.dailyBudget(on: today)
+        return amount >= 1 ? amount : calculator.budgetRules.first?.dailyAmountYen
+    }
+
+    /// 予算変更の履歴。有効開始日の新しい順（PRD §5.7）。
+    func budgetRuleHistory() -> [BudgetRule] {
+        calculator?.budgetRules.sorted { $0.effectiveFrom > $1.effectiveFrom } ?? []
+    }
+
+    /// 保存前に変更の影響を試算する（PRD §5.7）。
+    func previewBudgetChange(
+        to dailyAmountYen: Int64,
+        timing: BudgetChangeTiming
+    ) -> BudgetChangeImpact? {
+        guard let calculator else { return nil }
+        let today = self.today
+        return BudgetChangePreview.impact(
+            current: calculator,
+            newDailyAmountYen: dailyAmountYen,
+            effectiveFrom: timing.effectiveDate(from: today),
+            today: today,
+            expenses: fetchExpenseEntries(in: today.yearMonth)
+        )
+    }
+
+    /// 日額予算を変更する。
+    ///
+    /// 有効開始日ごとの履歴として保存し、昨日以前は遡及変更しない（PRD §6.1）。
+    /// 同じ有効開始日のルールが既にあれば、そのレコードを更新する。`effectiveFrom` には
+    /// 一意制約があるため、新しいレコードを足すと保存に失敗する。
+    func changeDailyBudget(to dailyAmountYen: Int64, timing: BudgetChangeTiming) throws {
+        guard dailyAmountYen >= 1 else { throw StoreError.invalidAmount }
+        let effectiveFrom = timing.effectiveDate(from: today)
+        let effectiveFromISO = effectiveFrom.iso
+        let now = clock()
+
+        var descriptor = FetchDescriptor<BudgetRuleEntity>(
+            predicate: #Predicate { $0.effectiveFromISO == effectiveFromISO }
+        )
+        descriptor.fetchLimit = 1
+        if let existing = (try? context.fetch(descriptor))?.first {
+            existing.dailyAmountYen = dailyAmountYen
+            existing.updatedAt = now
+        } else {
+            context.insert(
+                BudgetRuleEntity(
+                    effectiveFromISO: effectiveFromISO,
+                    dailyAmountYen: dailyAmountYen,
+                    createdAt: now,
+                    updatedAt: now
+                )
+            )
+        }
+
+        try save()
+        reload()
+    }
+
+    // MARK: - 全データ削除
+
+    /// 記録をすべて消して初期設定前の状態に戻す（PRD §5.7）。
+    func deleteAllData() throws {
+        for expense in (try? context.fetch(FetchDescriptor<ExpenseEntity>())) ?? [] {
+            context.delete(expense)
+        }
+        for rule in (try? context.fetch(FetchDescriptor<BudgetRuleEntity>())) ?? [] {
+            context.delete(rule)
+        }
+        for settlement in (try? context.fetch(FetchDescriptor<MonthlySettlementEntity>())) ?? [] {
+            context.delete(settlement)
+        }
+        for settings in (try? context.fetch(FetchDescriptor<AppSettingsEntity>())) ?? [] {
+            context.delete(settings)
+        }
+        // カテゴリは初期値なので残し、次回の初期設定でそのまま使う。
         try save()
         reload()
     }
