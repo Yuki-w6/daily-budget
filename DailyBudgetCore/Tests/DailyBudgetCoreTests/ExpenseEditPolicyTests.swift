@@ -33,10 +33,11 @@ struct ExpenseEditPolicyTests {
         #expect(range?.contains(day(12, 1)) == true)
     }
 
-    @Test("複数月が確定済みなら最後に確定した月の翌月初日が下限になる")
+    @Test("連続して確定済みなら最後に確定した月の翌月初日が下限になる")
     func multipleClosedMonthsUseTheLatest() {
         let earliest = ExpenseEditPolicy.earliestEditableDate(
             activeStartDate: activeStart,
+            today: CalendarDay(year: 2027, month: 2, day: 10),
             closedMonths: [
                 YearMonth(year: 2026, month: 11),
                 YearMonth(year: 2026, month: 12),
@@ -46,13 +47,47 @@ struct ExpenseEditPolicyTests {
         #expect(earliest == CalendarDay(year: 2027, month: 2, day: 1))
     }
 
+    @Test("古い月だけ解除したら、その月まで下限が戻る")
+    func reopeningAnOlderMonthLowersTheBound() {
+        // 11月を解除し、12月は確定済みのまま。11月から編集できる必要がある。
+        let earliest = ExpenseEditPolicy.earliestEditableDate(
+            activeStartDate: activeStart,
+            today: CalendarDay(year: 2027, month: 1, day: 10),
+            closedMonths: [YearMonth(year: 2026, month: 12)]
+        )
+        #expect(earliest == activeStart)
+        // ただし確定済みのままの12月は編集できない。
+        #expect(!ExpenseEditPolicy.isEditable(
+            CalendarDay(year: 2026, month: 12, day: 5),
+            activeStartDate: activeStart,
+            today: CalendarDay(year: 2027, month: 1, day: 10),
+            closedMonths: [YearMonth(year: 2026, month: 12)]
+        ))
+        #expect(ExpenseEditPolicy.isEditable(
+            day(11, 5),
+            activeStartDate: activeStart,
+            today: CalendarDay(year: 2027, month: 1, day: 10),
+            closedMonths: [YearMonth(year: 2026, month: 12)]
+        ))
+    }
+
     @Test("利用開始日のほうが遅ければ利用開始日が下限のまま")
     func activeStartWinsWhenLater() {
         let earliest = ExpenseEditPolicy.earliestEditableDate(
             activeStartDate: day(12, 10),
+            today: day(12, 20),
             closedMonths: [YearMonth(year: 2026, month: 11)]
         )
         #expect(earliest == day(12, 10))
+    }
+
+    @Test("当月まですべて確定済みなら編集できる日がない")
+    func noEditableDayWhenEveryMonthIsClosed() {
+        #expect(ExpenseEditPolicy.earliestEditableDate(
+            activeStartDate: activeStart,
+            today: day(11, 20),
+            closedMonths: [YearMonth(year: 2026, month: 11)]
+        ) == nil)
     }
 
     @Test("確定を解除した月は編集できる")

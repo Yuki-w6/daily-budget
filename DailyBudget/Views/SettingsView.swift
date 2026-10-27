@@ -13,12 +13,12 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("日額予算") {
-                    LabeledContent("現在の日額予算") {
+                Section("予算") {
+                    LabeledContent("1日の予算") {
                         Text(verbatim: store.currentDailyAmountYen.map(Yen.amount) ?? "—")
                             .monospacedDigit()
                     }
-                    Button("日額予算を変更") { isChangingBudget = true }
+                    Button("金額を変更") { isChangingBudget = true }
                         .disabled(store.currentDailyAmountYen == nil)
                 }
 
@@ -33,27 +33,15 @@ struct SettingsView: View {
                         }
                     } header: {
                         Text("変更履歴")
-                    } footer: {
-                        Text("有効開始日ごとに記録しています。過去の予算は遡って変更されません。")
                     }
                 }
 
-                Section("基準") {
+                Section("通貨と日付") {
                     LabeledContent("通貨", value: "日本円（JPY）")
                     LabeledContent("タイムゾーン", value: AppConstants.timeZoneIdentifier)
                     if let activeStartDate = store.activeStartDate {
-                        LabeledContent("利用開始日", value: activeStartDate.japaneseLongText)
+                        LabeledContent("利用開始", value: activeStartDate.japaneseLongText)
                     }
-                }
-
-                Section {
-                    // #13 ではじめる画面から移した案内。PRD §9 が画面上での明示を求めている。
-                    Text("記録はこの端末の中にだけ保存されます。第三者へ送信されることはありません。機種変更・端末の故障・アプリの削除では記録を引き継げません。")
-                        .font(.footnote)
-                    LabeledContent("データの書き出し", value: "今後のアップデートで対応")
-                        .foregroundStyle(.secondary)
-                } header: {
-                    Text("データの取り扱い")
                 }
 
                 Section("アプリについて") {
@@ -142,7 +130,7 @@ struct BudgetChangeView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("新しい日額予算") {
+                Section("新しい1日の予算") {
                     HStack {
                         Text("¥")
                             .foregroundStyle(.secondary)
@@ -152,7 +140,7 @@ struct BudgetChangeView: View {
                             .multilineTextAlignment(.trailing)
                             .font(.title2.monospacedDigit())
                             .focused($amountFocused)
-                            .accessibilityLabel("新しい日額予算")
+                            .accessibilityLabel("新しい1日の予算")
                     }
                 }
 
@@ -182,7 +170,7 @@ struct BudgetChangeView: View {
                                 : "変わりません")
                                 .monospacedDigit()
                         }
-                        LabeledContent("今月の月間予算") {
+                        LabeledContent("今月の予算") {
                             Text(verbatim: impact.changesThisMonth
                                 ? "\(Yen.amount(impact.monthBudgetBeforeYen)) → "
                                     + Yen.amount(impact.monthBudgetAfterYen)
@@ -192,7 +180,7 @@ struct BudgetChangeView: View {
                     } header: {
                         Text("この変更の影響")
                     } footer: {
-                        Text("前日までの累積余剰はそのまま保持されます。")
+                        Text("前の日までの残りは、そのまま引き継がれます。")
                     }
                 }
 
@@ -202,7 +190,7 @@ struct BudgetChangeView: View {
                     }
                 }
             }
-            .navigationTitle("日額予算の変更")
+            .navigationTitle("1日の予算を変更")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

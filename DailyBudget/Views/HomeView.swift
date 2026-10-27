@@ -2,6 +2,8 @@ import SwiftUI
 import DailyBudgetCore
 
 /// 画面B：ホーム。アプリを開いた瞬間に今日いくら使えるかがわかることを最優先にする（PRD §5.3）。
+///
+/// 月次の累積はレポートタブに集約し、ここでは今日の金額と直近の支出だけを出す。
 struct HomeView: View {
     let store: BudgetStore
 
@@ -10,17 +12,15 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 32) {
                     if let breakdown = store.todayBreakdown {
                         availableSection(breakdown)
-                    }
-                    if let summary = store.currentMonthSummary {
-                        monthSection(summary)
                     }
                     recordButton
                     recentExpensesSection
                 }
-                .padding()
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
             }
             .navigationTitle("Daily Budget")
             .sheet(item: $editorTarget) { target in
@@ -32,7 +32,7 @@ struct HomeView: View {
     // MARK: 今日使える金額
 
     private func availableSection(_ breakdown: TodayBreakdown) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(breakdown.day.japaneseLongText)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -40,8 +40,8 @@ struct HomeView: View {
             Text("今日使える金額")
                 .font(.headline)
 
-            Text(Yen.amount(breakdown.availableYen))
-                .font(.system(size: 48, weight: .bold, design: .rounded))
+            Text(verbatim: Yen.amount(breakdown.availableYen))
+                .font(.system(size: 52, weight: .bold, design: .rounded))
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
                 .foregroundStyle(breakdown.isOverBudget ? .red : .primary)
@@ -57,52 +57,40 @@ struct HomeView: View {
                 .foregroundStyle(.red)
             }
 
-            // 内訳：日額予算・前日までの繰越・今日の支出（PRD §5.3）。
-            VStack(alignment: .leading, spacing: 4) {
-                breakdownRow("日額予算", Yen.amount(breakdown.dailyBudgetYen))
-                breakdownRow("前日までの繰越", Yen.signedAmount(breakdown.carryOverYen))
-                breakdownRow("今日の支出", breakdown.todayExpenseYen > 0
-                    ? "−" + Yen.amount(breakdown.todayExpenseYen)
-                    : Yen.amount(0))
-            }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+            Text(verbatim: Self.breakdownLine(breakdown))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel(Self.breakdownAccessibilityLabel(breakdown))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func breakdownRow(_ title: String, _ value: String) -> some View {
-        HStack {
-            Text(title)
-            Spacer()
-            Text(value).monospacedDigit()
+    /// 内訳は1行にまとめる。
+    ///
+    /// 「予算」は1日の予算と前日までの繰越を足した額。この額から支出を引くと
+    /// 大きな数字と一致するので、計算が追える。繰越が0円の日は括弧を出さない。
+    private static func breakdownLine(_ breakdown: TodayBreakdown) -> String {
+        let budget = breakdown.dailyBudgetYen + breakdown.carryOverYen
+        var line = "予算 " + Yen.amount(budget)
+        if breakdown.carryOverYen != 0 {
+            line += "（繰越 " + Yen.signedAmount(breakdown.carryOverYen) + "）"
         }
-        .accessibilityElement(children: .combine)
+        if breakdown.todayExpenseYen > 0 {
+            line += " ・ 支出 −" + Yen.amount(breakdown.todayExpenseYen)
+        }
+        return line
     }
 
-    // MARK: 今月の実績
-
-    private func monthSection(_ summary: MonthSummary) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("今月の実績")
-                .font(.headline)
-            statRow("累積予算", Yen.amount(summary.budgetTotalYen))
-            statRow("累積支出", Yen.amount(summary.expenseTotalYen))
-            statRow("累積余剰", Yen.signedAmount(summary.surplusYen))
-            statRow("経過日数", "\(summary.days.count)日")
+    private static func breakdownAccessibilityLabel(_ breakdown: TodayBreakdown) -> String {
+        let budget = breakdown.dailyBudgetYen + breakdown.carryOverYen
+        var parts = ["予算 \(Yen.spoken(budget))"]
+        if breakdown.carryOverYen != 0 {
+            parts.append("うち繰越 \(Yen.spoken(breakdown.carryOverYen))")
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
-    }
-
-    private func statRow(_ title: String, _ value: String) -> some View {
-        HStack {
-            Text(title)
-            Spacer()
-            Text(value).monospacedDigit().fontWeight(.medium)
+        if breakdown.todayExpenseYen > 0 {
+            parts.append("支出 \(Yen.spoken(breakdown.todayExpenseYen))")
         }
-        .accessibilityElement(children: .combine)
+        return parts.joined(separator: "、")
     }
 
     // MARK: 操作
@@ -121,16 +109,17 @@ struct HomeView: View {
     // MARK: 最近の支出
 
     private var recentExpensesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             Text("最近の支出")
                 .font(.headline)
+                .padding(.bottom, 4)
 
             if store.currentMonthExpenses.isEmpty {
                 Text("今月の支出はまだありません。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(store.currentMonthExpenses.prefix(10)) { expense in
+                ForEach(store.currentMonthExpenses.prefix(8)) { expense in
                     Button {
                         editorTarget = .existing(expense)
                     } label: {
@@ -145,11 +134,11 @@ struct HomeView: View {
     }
 
     private func expenseRow(_ expense: ExpenseEntity) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(CalendarDay(iso: expense.spentOnISO)?.shortText ?? expense.spentOnISO)
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(verbatim: CalendarDay(iso: expense.spentOnISO)?.shortText ?? expense.spentOnISO)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-                .frame(width: 48, alignment: .leading)
+                .frame(width: 44, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(expense.category?.name ?? "その他")
@@ -157,16 +146,16 @@ struct HomeView: View {
                     Text(memo)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                        .lineLimit(1)
                 }
             }
 
             Spacer()
 
-            Text(Yen.amount(expense.amountYen))
+            Text(verbatim: Yen.amount(expense.amountYen))
                 .monospacedDigit()
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 10)
         .contentShape(Rectangle())
     }
 }

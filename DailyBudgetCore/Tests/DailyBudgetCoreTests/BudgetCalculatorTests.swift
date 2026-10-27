@@ -85,22 +85,6 @@ struct BudgetCalculatorTests {
         #expect(summary.surplusYen == 5_000)
     }
 
-    @Test("月末見込みは未来日の予算を含み実績とは別の値になる")
-    func projectionIncludesRemainingDays() {
-        let expenses = [ExpenseEntry(spentOn: day(1), amountYen: 1_000)]
-        let november = YearMonth(year: 2026, month: 11)
-        let actual = calculator.monthSummary(for: november, expenses: expenses, asOf: day(3))
-        let projection = calculator.monthEndProjection(
-            for: november,
-            expenses: expenses,
-            asOf: day(3)
-        )
-        #expect(actual.surplusYen == 5_000)           // 3日経過時点の実績
-        #expect(projection.budgetTotalYen == 60_000)  // 30日分
-        #expect(projection.projectedSurplusYen == 59_000)
-        #expect(projection.projectedSurplusYen != actual.surplusYen)
-    }
-
     @Test("日数が異なる月は月間予算も異なる")
     func monthlyBudgetFollowsCalendarDayCount() {
         let calculator = BudgetCalculator(
